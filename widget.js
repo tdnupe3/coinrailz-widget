@@ -1,33 +1,37 @@
 (function() {
   const COINRAILZ_WALLET = "0x37b4b30e4C879b4DAf334C2e4f8D7B7A8E300A64";
   const NOWPAYMENTS_API_KEY = "GTDME1E-KTB4E01-H9BZGVB-6Z3HMN3";
-  const API_URL = "https://api.nowpayments.io/v1";
+  const API_URL = "https://api.nowpayments.io/v1/payment";
 
-  function createPayment(amount, fiatCurrency, cryptoCurrency, callback) {
-    fetch(`${API_URL}/invoice`, {
-      method: "POST",
-      headers: {
-        "x-api-key": NOWPAYMENTS_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        price_amount: parseFloat(amount),
-        price_currency: fiatCurrency,
-        pay_currency: cryptoCurrency,
-        payout_address: COINRAILZ_WALLET,
-        order_id: "Coinrailz_Order_" + Date.now(),
-        ipn_callback_url: "https://coinrailz.com/ipn",
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.invoice_url) {
-          callback(null, data.invoice_url);
-        } else {
-          callback("Error generating payment", null);
-        }
-      })
-      .catch((error) => callback(error, null));
+  async function createPayment(amount, fiatCurrency, cryptoCurrency) {
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": NOWPAYMENTS_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          price_amount: parseFloat(amount),
+          price_currency: fiatCurrency,
+          pay_currency: cryptoCurrency,
+          payout_address: COINRAILZ_WALLET,
+          order_id: "Coinrailz_Order_" + Date.now(),
+          ipn_callback_url: "https://coinrailz.com/ipn"
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.invoice_url) {
+        return data.invoice_url;
+      } else {
+        throw new Error(data.message || "Failed to generate payment URL");
+      }
+    } catch (error) {
+      console.error("Payment Error:", error);
+      return null;
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -54,25 +58,25 @@
       </div>
     `;
 
-    document.getElementById("coinrailz-buy").addEventListener("click", function () {
+    document.getElementById("coinrailz-buy").addEventListener("click", async function () {
       const amount = document.getElementById("coinrailz-amount").value;
       const fiatCurrency = document.getElementById("coinrailz-fiat").value;
       const cryptoCurrency = document.getElementById("coinrailz-crypto").value;
-      
+
       if (!amount || amount <= 0) {
         document.getElementById("coinrailz-result").innerHTML = "<p style='color: red;'>Please enter a valid amount.</p>";
         return;
       }
-      
+
       document.getElementById("coinrailz-result").innerHTML = "<p>Processing...</p>";
-      
-      createPayment(amount, fiatCurrency, cryptoCurrency, function (error, paymentUrl) {
-        if (error) {
-          document.getElementById("coinrailz-result").innerHTML = "<p style='color: red;'>Error: " + error + "</p>";
-        } else {
-          document.getElementById("coinrailz-result").innerHTML = `<p><a href="${paymentUrl}" target="_blank" style='color: #ffcc00; font-weight: bold;'>Click here to complete payment</a></p>`;
-        }
-      });
+
+      const paymentUrl = await createPayment(amount, fiatCurrency, cryptoCurrency);
+
+      if (paymentUrl) {
+        document.getElementById("coinrailz-result").innerHTML = `<p><a href="${paymentUrl}" target="_blank" style='color: #ffcc00; font-weight: bold;'>Click here to complete payment</a></p>`;
+      } else {
+        document.getElementById("coinrailz-result").innerHTML = "<p style='color: red;'>Error generating payment.</p>";
+      }
     });
   });
 })();
