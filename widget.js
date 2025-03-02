@@ -4,20 +4,36 @@
   const API_URL = "https://api.nowpayments.io/v1";
 
   async function fetchAvailableCryptos() {
+    console.log("Fetching available cryptocurrencies...");
+    console.log("Using API Key:", NOWPAYMENTS_API_KEY); // Debugging line
+    
     try {
       const response = await fetch(`${API_URL}/currencies`, {
         headers: { "x-api-key": NOWPAYMENTS_API_KEY }
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
       const data = await response.json();
-      return data.currencies || [];
+      console.log("Cryptocurrencies received:", data);
+
+      if (!data || !data.currencies || data.currencies.length === 0) {
+        throw new Error("Empty crypto list received.");
+      }
+
+      return data.currencies;
     } catch (error) {
       console.error("Error fetching available cryptocurrencies:", error);
-      return [];
+
+      // Default fallback list if API fails
+      return ["btc", "eth", "usdt", "usdc", "bnb", "xrp", "ada", "dot"];
     }
   }
 
   function createPayment(amount, fiatCurrency, cryptoCurrency, callback) {
-    fetch(`${API_URL}/invoice`, {
+    fetch(`${API_URL}/payment`, {  // ✅ Correct API Endpoint
       method: "POST",
       headers: {
         "x-api-key": NOWPAYMENTS_API_KEY,
@@ -34,6 +50,7 @@
     })
       .then((response) => response.json())
       .then((data) => {
+        console.log("Payment Response:", data);
         if (data.invoice_url) {
           callback(null, data.invoice_url);
         } else {
